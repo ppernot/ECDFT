@@ -1,6 +1,6 @@
 # Load/Install Packages ####
 
-libs = c('xtable', 'RColorBrewer', 'boot', 'parallel')
+libs = c('xtable', 'RColorBrewer', 'boot', 'parallel','tiff','png')
 void = sapply(libs,
               function(x)
                 if(!require(x,
@@ -198,8 +198,9 @@ plotDistHist = function(x,y,cex=1,lwd=1,nclass=NULL,xlab='x',ylab='y',
 }
 
 rescale = function(x) {
-  # Rescale to [0,1]
-  (x - min(x, na.rm = TRUE))/ (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+  # Rescale to [-1,1]
+  2*((x - min(x, na.rm = TRUE)) / 
+    (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))-0.5)
 } 
   
 paraPlot = function (x, col = 1, lty = 1, pch=19, 
@@ -209,12 +210,15 @@ paraPlot = function (x, col = 1, lty = 1, pch=19,
   rx <- apply(x, 2, range, na.rm = TRUE)
   x <-  apply(x, 2, rescale)
   matplot(1:ncol(x), t(x), type = "l", col = col, lty = lty, 
-          xlab = "", ylab = "", xlim=c(1,ncol(x)+1),axes = FALSE, ...)
+          xlab = "", ylab = "Arb. units", mgp=c(1.5,0.75,0),
+          xlim=c(1,ncol(x)+1),axes = FALSE, ...)
   matpoints(1:ncol(x), t(x), col = col, pch=pch,cex=0.8)
   axis(1, at = 1:ncol(x), labels = colnames(x), las=las)
-  axTicks(2)
+  axis(2, at = seq(-1,1,by=0.2), labels = seq(-1,1,by=0.2), 
+       pos=1, las=las)
+
   for (i in 1:ncol(x)) {
-    lines(c(i, i), c(0, 1), col = "grey70")
+    lines(c(i, i), c(-1, 1), col = "grey70")
   }
   invisible()
 }
@@ -235,7 +239,7 @@ myParPlot = function (X, maxPoints = 256, cex = 1, las=2,
   nP = min(maxPoints, nrow(X))
   iSamp = seq.int(1, nrow(X), length.out = nP)
   X1 = X[iSamp, sdX != 0]
-  par(cex = cex, mar=c(6,0.5,0.5,0.5))
+  par(cex = cex, mar=c(6,3,0.5,0.0))
   if(is.null(colors))
     colors = genColors(X1[, ncol(X1)])
   paraPlot(X1, col = colors, lwd = lwd, las=las, var.label=labels)
@@ -385,6 +389,14 @@ selCHON  = !selHet
 haloS    = atomList %in% c("S","F","Cl")
 selHaloS = rowSums(compoTab[,haloS]) != 0
 
+# Normality tests
+nor = norPA = rep(NA,nMeth)
+names(nor) = names(norPA) = methList
+for (meth in methList) {
+  nor[meth] = signif(shapiro.test(Errors[,meth])$p.value,2)
+  norPA[meth] = signif(shapiro.test(ErrorsPA[,meth])$p.value,2)
+}
+write.csv(data.frame(AE=nor,IAE=norPA),file = 'NormalityTest.csv')
 
 # Table 1 ####
 ## Usual stats 
@@ -512,7 +524,7 @@ Y1  = 1 + m*x
 Y2  = (1+x)^2
 err = Y1-Y2
 
-png(file='Fig_1.png',width=2*height,height=height)
+tiff(file='Fig_01.tiff',width=2*height,height=height,compression="lzw")
 par(mfrow=c(1,2), mar=mar, mgp=mgp, tcl=tcl, 
     cex=cex, lwd=lwd, xaxs='i', yaxs='i')
 
@@ -561,7 +573,7 @@ res  = apply(grid, 1, muF)
 qmu  = apply(cbind(res,grid),1,cdfF)
 resQ = apply(grid, 1, q95F, eps=eps)
 
-png(file='Fig_2.png',width=2*height,height=2*height)
+tiff(file='Fig_02.tiff',width=2*height,height=2*height,compression="lzw")
 par(mfrow=c(2,2),mar=mar,mgp=mgp,tcl=tcl, 
     pty='m',cex=4,lwd=6)
 
@@ -569,7 +581,8 @@ c1 = dnorm( eps,1,1)
 c2 = dnorm(-eps,1,1)
 c3 = c1+c2
 plot(eps,c1, type='l', lty=1, col=4, 
-     xlim=c(-4,4),ylim=c(0,0.5),yaxs='i', main='PDF', 
+     xlim=c(-4,4),ylim=c(0,0.5),yaxs='i', 
+     # main='PDF', 
      xlab=expression(epsilon~(kcal/mol)),
      ylab='probability density (mol/kcal)')
 lines(-eps,    c2, lty=1, col=4)
@@ -579,8 +592,7 @@ lines( eps,    c3, lty=1, col=2)
 abline(v=0,lty=3)
 legend('topleft',legend=c('Normal','Folded'),
        col=c(4,2), lty=1, ncol = 1,
-       title = '  (a)',
-       title.adj=0, box.lty=0, seg.len=1)
+       title = '  (a)', title.adj=0, box.lty=1, seg.len=1.5)
 box()
 
 contour(mu, sig, matrix(res, length(mu), length(sig)), 
@@ -588,37 +600,59 @@ contour(mu, sig, matrix(res, length(mu), length(sig)),
         vfont=c('sans serif','bold'),
         xlab=expression(mu~(kcal/mol)),
         ylab=expression(sigma~(kcal/mol)),
-        main=expression(mu[FN]),
+        # main=expression(mu[FN]),
         xaxs='i',yaxs='i'
-        )
-legend('topleft',legend='',title = '(b)',box.lty=0)
-grid();box()
+)
+grid()
+contour(mu, sig, matrix(res, length(mu), length(sig)), 
+        20, col=4, labcex = cex, method="edge",
+        vfont=c('sans serif','bold'),
+        add=TRUE # Replot over grid lines...
+)
+legend('topleft',
+       legend=expression(mu[FN]),
+       col=4, lty=1,
+       title = '  (b)',title.adj=0, box.lty=1, seg.len=1.5)
+box()
 
 contour(mu, sig, matrix(qmu, length(mu), length(sig)), 
         15, col=4, labcex = cex, method="edge",
         vfont=c('sans serif','bold'),
         xlab=expression(mu~(kcal/mol)),
         ylab=expression(sigma~(kcal/mol)),
-        main=expression(C~(mu[FN])),
+        # main=expression(C~(mu[FN])),
         xaxs='i',yaxs='i'
         )
-legend('topleft',legend='',title = '(c)',box.lty=0)
-grid();box()
+grid()
+legend('topleft',
+       legend=expression(C~(mu[FN])),
+       col=4, lty=1,
+       title = '  (c)',title.adj=0, box.lty=1, seg.len=1.5)
+box()
 
 contour(mu, sig, matrix(res, length(mu), length(sig)), 
-        20, col=4, lty=2, labels=NULL,
+        20, col=4, labcex = cex, method="edge",
+        vfont=c('sans serif','bold'),
         xlab=expression(mu~(kcal/mol)),
         ylab=expression(sigma~(kcal/mol)),
-        main=expression(Q[95]),        
+        # main=expression(Q[95]),
         xaxs='i',yaxs='i'
-        )
-
+)
+grid()
+contour(mu, sig, matrix(res, length(mu), length(sig)), 
+        20, col=4, labcex = cex, method="edge",
+        vfont=c('sans serif','bold'),
+        add=TRUE # Replot over grid lines...
+)
 contour(mu, sig, matrix(resQ, length(mu), length(sig)), 
-        15, col=2, lty=1, labcex = cex, method="edge",
+        15, col=2, lty=2, lwd=8, labcex = cex, method="edge",
         vfont=c('sans serif','bold'),
         add=TRUE)
-legend('topleft',legend='',title = '(d)',box.lty=0)
-grid();box()
+legend('topleft',
+       legend=c(expression(mu[FN]),expression(Q[95])),
+       col = c(4,2), lty= c(1,2), lwd=c(6,8),
+       title = '  (d)',title.adj=0, box.lty=1, seg.len=1.5)
+box()
 
 void=dev.off()
 
@@ -627,7 +661,7 @@ void=dev.off()
 
 meth=1
 X = abs(ErrorsPA[,meth])
-png(file='Fig_3.png',width=1.2*height,height=height)
+tiff(file='Fig_03.tiff',width=1.2*height,height=height,compression="lzw")
 par(mfrow=c(1,1),mar=mar, mgp=mgp, tcl=tcl, 
     cex=cex, lwd=lwd, lend=2)
 
@@ -676,7 +710,7 @@ void=dev.off()
 ## Histograms AE & IAE B3LYP
 
 meth='B3LYP'
-png(file=paste0('Fig_4.png'),width=2*height,height=height)
+tiff(file=paste0('Fig_04.tiff'),width=2*height,height=height,compression="lzw")
 
 par(mfrow=c(1,2),mar=mar, mgp=mgp, tcl=tcl, 
     pty='s', cex=cex, lwd=lwd)
@@ -701,7 +735,7 @@ void=dev.off()
 ## Err dist AE & IAE B3LYP 
 
 meth='B3LYP'
-png(file=paste0('Fig_5a.png'),width=height,height=height)
+tiff(file=paste0('Fig_05a.tiff'),width=height,height=height,compression="lzw")
 x = Eref
 y = Errors[,meth]
 plotDistHist(x,y,nclass=33, plotGauss=FALSE,
@@ -711,7 +745,7 @@ plotDistHist(x,y,nclass=33, plotGauss=FALSE,
              ylab='Error (kcal/mol)')
 void=dev.off()
 
-png(file=paste0('Fig_5b.png'),width=height,height=height)
+tiff(file=paste0('Fig_05b.tiff'),width=height,height=height,compression="lzw")
 x = Eref/nAtoms
 y = ErrorsPA[,meth]
 plotDistHist(x,y,nclass=33, plotGauss=FALSE,
@@ -730,7 +764,7 @@ col[selHet] = 2
 x = nAtoms
 for (meth in methList) {
     y = Errors[,meth]
-  png(file=paste0('Fig_6_',meth,'.png'),width=1.2*height,height=1.2*height)
+  png(file=paste0('Fig_06_',meth,'.png'),width=1.2*height,height=1.2*height)
   plotDistHist(x,y,nclass=33, plotGauss=FALSE,
                main=meth,
                cex=4.5,lwd=3,col=4,
@@ -741,7 +775,7 @@ for (meth in methList) {
   void=dev.off()
   
   y = ErrorsPA[,meth]
-  png(file=paste0('Fig_7_',meth,'.png'),width=1.2*height,height=1.2*height)
+  png(file=paste0('Fig_07_',meth,'.png'),width=1.2*height,height=1.2*height)
   plotDistHist(x,y,nclass=33, plotGauss=FALSE,
                main=meth,
                cex=4.5,lwd=3,col=4,
@@ -755,7 +789,7 @@ for (meth in methList) {
 
 ### Assemble images
 for(ifig in 6:7) {
-  target = paste0('Fig_',ifig)
+  target = paste0('Fig_0',ifig)
   nImg = length(methList)
   meth = methList[1]
   img = png::readPNG(source=paste0(target,'_',meth,'.png'))
@@ -775,7 +809,7 @@ for(ifig in 6:7) {
     }
     file.remove(paste0(target,'_',meth,'.png'))
   }
-  png::writePNG(target = paste0(target,'.png'),image=bigImg)
+  tiff::writeTIFF(where = paste0(target,'.tiff'),what = bigImg, compression="LZW")
 }
 
 # Fig 8 ####
@@ -784,7 +818,7 @@ for(ifig in 6:7) {
 io = rev(c(1,5,8,3,6,2,4,9,7)) 
 X1=ErrorsPA[,io]
 
-png(file='Fig_8.png',width=1.5*height,height=1.2*height)
+tiff(file='Fig_08.tiff',width=1.5*height,height=1.2*height,compression="lzw")
 y = X1[,'B3LYP']
 lab1 = y > quantile(y,p=0.975)
 lab2 = y < quantile(y,p=0.025) 
@@ -818,7 +852,7 @@ void=dev.off()
 # Figs 9 ####
 ## ECDFs IAE
 
-png(file='Fig_9.png',width=3*height,height=3*height)
+tiff(file='Fig_09.tiff',width=3*height,height=3*height,compression="lzw")
 par(mfrow=c(3,3),mar=c(3,3.5,0.5,0.5), mgp=mgp, tcl=tcl, 
     cex=2*cex,lwd=2*cex)
 for(meth in methList) {
@@ -865,7 +899,7 @@ for(meth in methList) {
   ciQ95F[meth,] = boot::boot.ci(SB,type="perc")$percent[4:5]
 }
 
-png(file='Fig_10.png',width=height,height=height)
+tiff(file='Fig_10.tiff',width=height,height=height,compression="lzw")
 par(mfrow=c(1,1),mar=mar, mgp=mgp, tcl=tcl, 
     pty='s', cex=cex, lwd=lwd)
 
@@ -904,7 +938,7 @@ for(meth in methList) {
 }
 
 
-png(file='Fig_11.png',width=2*height,height=1.1*height)
+tiff(file='Fig_11.tiff',width=2*height,height=1.1*height,compression="lzw")
 par(mfrow=c(1,2),mar=c(5,3.5,0.5,0.5), mgp=mgp, tcl=tcl, 
     pty='s', cex=cex, lwd=lwd)
 
@@ -952,7 +986,7 @@ void = dev.off()
 
 meth='B3LYP'
 X = abs(ErrorsPA[,meth])
-png(file='Fig_12.png',width=2*height,height=height)
+tiff(file='Fig_12.tiff',width=2*height,height=height,compression="lzw")
 par(mfrow=c(1,2), mar=mar, mgp=mgp, tcl=tcl,
     cex=cex, lwd=lwd)
 
@@ -1057,7 +1091,7 @@ Q90m = t(apply(q90,2,mean))
 Q95  = t(apply(q95,2,function(x) quantile(x,probs = c(0.025,0.975))))
 Q95m = t(apply(q95,2,mean))
 
-png(file='Fig_13.png',width=2*height,height=height)
+tiff(file='Fig_13.tiff',width=2*height,height=height,compression="lzw")
 par(mfrow=c(1,2), mar=mar, mgp=mgp, tcl=tcl, 
     pty='s', cex=cex, lwd=lwd)
 
@@ -1113,13 +1147,13 @@ void=dev.off()
 # Alternative Figs ####
 
 ## Joy plots of IAE errors and unsigned errors
-png(file='Fig_Alt1.png',width=1.2*height,height=height)
+tiff(file='Fig_Alt1.tiff',width=1.2*height,height=height,compression="lzw")
 par(mfrow=c(1,1), mar=c(3.0,5.0,0.5,0.5), mgp=mgp, tcl=tcl, 
     cex=cex, lwd=lwd, lend=2)
 joyPlot(ErrorsPA,xlab='IAE Errors (kcal/mol)')
 void=dev.off()
 
-png(file='Fig_Alt2.png',width=1.2*height,height=height)
+tiff(file='Fig_Alt2.tiff',width=1.2*height,height=height,compression="lzw")
 par(mfrow=c(1,1), mar=c(3.0,5.0,0.5,0.5), mgp=mgp, tcl=tcl, 
     cex=cex, lwd=lwd, lend=2, xaxs='i')
 joyPlot(AbsErrorsPA,xlab='Absolute IAE Errors (kcal/mol)',xlim=c(0,15))
@@ -1133,7 +1167,7 @@ for (meth in methList) {
   iqr[meth] = diff(quantile(ErrorsPA[,meth],probs = c(0.025,0.975)))
 }
 
-png(file='Fig_Alt3.png',width=height,height=height)
+tiff(file='Fig_Alt3.tiff',width=height,height=height,compression="lzw")
 par(mfrow=c(1,1), mar=c(3.0,3.5,0.5,0.5), mgp=mgp, tcl=tcl, 
     cex=cex, lwd=lwd, lend=2)
 plot(med,iqr,col=cols,pch=19,
