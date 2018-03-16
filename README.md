@@ -2,7 +2,7 @@
 
 # ECDFT
 Code and data to reproduce the results of the paper
-__Probabilistic performance estimators for computational chemistry methods: the empirical cumulative distribution function of absolute errors__ by P. Pernot and A. Savin [J. Chem. Phys. 148:241707 (2018)](http://dx.doi.org/10.1063/1.5016248)     
+__Probabilistic performance estimators for computational chemistry methods: the empirical cumulative distribution function of absolute errors__ by P. Pernot and A. Savin [_J. Chem. Phys._ __148__:241707 (2018)](http://dx.doi.org/10.1063/1.5016248)     
 
 * [dataG399.csv](dataG399.csv) Dataset of DFT calculations of atomization energies for molecules of the G3/99 set [Curtiss, L. A.; Raghavachari, K.; Redfern, P. C. & Pople, J. A. (2000) _J. Chem. Phys._ __112__:7374-7383](http://dx.doi.org/10.1063/1.481336). Contains:
     + __systems__: name of the molecule
