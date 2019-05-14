@@ -506,7 +506,7 @@ for (i1 in 2:nMeth) {
     meth1 = methList[io][i1]
     meth2 = methList[io][i2]
     p12[i1,i2] = pnorm(0, mean=MUE[meth1]-MUE[meth2],
-                          sd=sqrt(uMUE[meth1]^1+uMUE[meth2]^2)
+                          sd=sqrt(uMUE[meth1]^2+uMUE[meth2]^2)
     )
   }
 }
